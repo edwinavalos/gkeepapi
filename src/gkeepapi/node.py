@@ -1791,6 +1791,27 @@ class List(TopLevelNode):
     def text(self) -> str:  # noqa: D102
         return "\n".join(str(node) for node in self.items)
 
+    @text.setter
+    def text(self, value: str) -> None:
+        """Set the text value by replacing all list items.
+        
+        Args:
+            value: Text value. Each line becomes a separate list item.
+        """
+        # Clear existing items
+        for item in list(self.items):
+            self.remove(item)
+        
+        # Split text into lines and create new items
+        if value.strip():
+            lines = value.split('\n')
+            for i, line in enumerate(lines):
+                if line.strip():  # Skip empty lines
+                    # Use explicit sort values to maintain order
+                    self.add(line.strip(), checked=False, sort=i * self.SORT_DELTA)
+        
+        self.touch(True)
+
     @classmethod
     def sorted_items(cls, items: list[ListItem]) -> list[ListItem]:  # noqa: C901
         """Generate a list of sorted list items, taking into account parent items.
