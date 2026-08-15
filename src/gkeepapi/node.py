@@ -1794,33 +1794,50 @@ class List(TopLevelNode):
     @text.setter
     def text(self, value: str) -> None:
         """Set the text value by parsing it into list items.
-        
+
+        Mirrors the format produced by the getter (see
+        :meth:`ListItem.__str__`): a line prefixed with two spaces is
+        indented one level under the nearest preceding non-indented
+        line, so ``list.text = list.text`` round-trips a single level
+        of hierarchy instead of flattening it.
+
         Args:
             value: Text value with one item per line.
         """
         # Clear existing items
         for item in list(self.items):
             item.delete()
-        
-        # Parse new text into items
-        if value:
-            lines = value.strip().split('\n')
-            sort = random.randint(1000000000, 9999999999)  # noqa: S311
-            for line in lines:
-                line = line.strip()
-                if line:
-                    # Check if line starts with checkbox indicators
-                    checked = False
-                    if line.startswith('☑') or line.startswith('[x]') or line.startswith('[X]'):
-                        checked = True
-                        line = line[1:].strip() if line.startswith('☑') else line[3:].strip()
-                    elif line.startswith('☐') or line.startswith('[ ]'):
-                        checked = False
-                        line = line[1:].strip() if line.startswith('☐') else line[3:].strip()
-                    
-                    self.add(line, checked, sort)
-                    sort -= self.SORT_DELTA
-        
+
+        if not value:
+            self.touch(True)
+            return
+
+        lines = value.strip("\n").split("\n")
+        sort = random.randint(1000000000, 9999999999)  # noqa: S311
+        last_top_level = None
+
+        for raw_line in lines:
+            if not raw_line.strip():
+                continue
+
+            indented = raw_line.startswith("  ")
+            line = raw_line.strip()
+
+            # Check if line starts with checkbox indicators
+            checked = False
+            if line.startswith('☑') or line.startswith('[x]') or line.startswith('[X]'):
+                checked = True
+                line = line[1:].strip() if line.startswith('☑') else line[3:].strip()
+            elif line.startswith('☐') or line.startswith('[ ]'):
+                checked = False
+                line = line[1:].strip() if line.startswith('☐') else line[3:].strip()
+
+            if indented and last_top_level is not None:
+                last_top_level.add(line, checked, sort)
+            else:
+                last_top_level = self.add(line, checked, sort)
+            sort -= self.SORT_DELTA
+
         self.touch(True)
 
     @classmethod

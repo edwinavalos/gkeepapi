@@ -623,6 +623,65 @@ class ListTests(unittest.TestCase):
         self.assertEqual(n_str, str(n))
         self.assertEqual(n_text, n.text)
 
+    def test_text_setter_round_trips_indentation(self):
+        n = node.List()
+
+        top_a = n.add("Category A", sort=2)
+        top_a.add("item 1", sort=2)
+        top_a.add("item 2", sort=1)
+        n.add("Category B", sort=1)
+
+        rendered = n.text
+        self.assertIn("  ", rendered, "fixture should actually contain an indented line")
+
+        n.text = rendered
+
+        by_text = {item.text: item for item in n.items}
+        self.assertEqual(
+            {"Category A", "item 1", "item 2", "Category B"}, set(by_text)
+        )
+        self.assertFalse(by_text["Category A"].indented)
+        self.assertFalse(by_text["Category B"].indented)
+
+        self.assertTrue(by_text["item 1"].indented)
+        self.assertEqual("Category A", by_text["item 1"].parent_item.text)
+
+        self.assertTrue(by_text["item 2"].indented)
+        self.assertEqual("Category A", by_text["item 2"].parent_item.text)
+
+    def test_text_setter_preserves_checked_state_with_indentation(self):
+        n = node.List()
+
+        n.text = "☐ Category A\n  ☑ item 1\n  ☐ item 2\n☑ Category B"
+
+        by_text = {item.text: item for item in n.items}
+        self.assertFalse(by_text["Category A"].checked)
+        self.assertTrue(by_text["item 1"].checked)
+        self.assertTrue(by_text["item 1"].indented)
+        self.assertFalse(by_text["item 2"].checked)
+        self.assertTrue(by_text["Category B"].checked)
+        self.assertFalse(by_text["Category B"].indented)
+
+    def test_text_setter_treats_leading_indent_with_no_parent_as_top_level(self):
+        n = node.List()
+
+        # Malformed input: first line is indented with nothing above it.
+        n.text = "  orphan item\n☐ Category A"
+
+        by_text = {item.text: item for item in n.items}
+        self.assertIn("orphan item", by_text)
+        self.assertFalse(by_text["orphan item"].indented)
+
+    def test_text_setter_replaces_previous_items(self):
+        n = node.List()
+
+        n.text = "☐ Category A\n  ☐ item 1"
+        self.assertEqual(2, len(n.items))
+
+        n.text = "☐ Category B"
+        self.assertEqual(1, len(n.items))
+        self.assertEqual("Category B", n.items[0].text)
+
 
 class ListItemTests(unittest.TestCase):
     def test_fields(self):
